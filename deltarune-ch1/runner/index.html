@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0" />
+    <title>GXC Game</title>
+    <style>
+      @-webkit-keyframes rotation {
+        from {
+          -webkit-transform: rotate(0deg);
+        }
+
+        to {
+          -webkit-transform: rotate(360deg);
+        }
+      }
+
+      @-moz-keyframes rotation {
+        from {
+          -moz-transform: rotate(0deg);
+        }
+
+        to {
+          -moz-transform: rotate(360deg);
+        }
+      }
+
+      @-o-keyframes rotation {
+        from {
+          -o-transform: rotate(0deg);
+        }
+
+        to {
+          -o-transform: rotate(360deg);
+        }
+      }
+
+      @keyframes rotation {
+        from {
+          transform: rotate(0deg);
+        }
+
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      html {
+        background: #000000;
+      }
+
+      body {
+        font-family: arial;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        min-height: fill-available;
+        min-height: 100svh; /* Otherwise contents can be covered by an address bar in Safari on iOS 15 */
+        min-width: 100vw;
+        display: flex;
+        flex-direction: column;
+        overflow-x: hidden;
+        place-items: center;
+      }
+
+      body.scrollingDisabled {
+        overflow: hidden;
+      }
+
+      .emscripten {
+        padding-right: 0;
+        display: block;
+      }
+
+      div.emscripten {
+        text-align: center;
+      }
+
+      /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+      canvas.emscripten {
+        display: none;
+        border: 0px none;
+        background-color: black;
+        position: relative;
+        transition: opacity 5s ease-in;
+        -webkit-transition: opacity 5s ease-in;
+        opacity: 0;
+        filter: blur(0) grayscale(0);
+        margin-top: auto;
+        margin-bottom: auto;
+        image-rendering: optimizeSpeed;             /* Older versions of FF          */
+        image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
+        image-rendering: -webkit-optimize-contrast; /* Safari                        */
+        image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
+        image-rendering: pixelated;                 /* Awesome future-browsers       */
+        -ms-interpolation-mode: nearest-neighbor;   /* IE                            */
+      }
+
+      canvas.active {
+        animation-name: fadeIn;
+        animation-duration: 2s;
+        opacity: 1;
+      }
+
+      canvas.paused {
+        animation-name: blur;
+        animation-duration: 0.5s;
+        filter: blur(2px) grayscale(1);
+      }
+
+      canvas.unpaused {
+        animation-name: none;
+      }
+
+      canvas.animatedSizeTransitions {
+        transition: width 0.3s ease, height 0.3s ease;
+      }
+
+      @keyframes fadeIn {
+        0% {
+          opacity: 0;
+        }
+
+        100% {
+          opacity: 1;
+        }
+      }
+
+      @keyframes blur {
+        0% {
+          filter: blur(0) grayscale(0);
+        }
+
+        100% {
+          filter: blur(2px) grayscale(1);
+        }
+      }
+
+      .spinner {
+        height: 30px;
+        width: 30px;
+
+        -webkit-animation: rotation 0.8s linear infinite;
+        -moz-animation: rotation 0.8s linear infinite;
+        -o-animation: rotation 0.8s linear infinite;
+        animation: rotation 0.8s linear infinite;
+
+        border: 5px solid #bdff00;
+        border-top: 5px solid #719900;
+        border-radius: 100%;
+      }
+
+      .multiplayer-stats {
+        position: absolute;
+        left: 20px;
+        top: 20px;
+        font-family: monospace;
+        font-size: 8;
+        color: white;
+        visibility: hidden;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+
+      #status {
+        display: inline-block;
+        vertical-align: top;
+        font-weight: bold;
+        color: white;
+      }
+
+      #progress {
+        width: 250px;
+        height: 10px;
+        -webkit-appearance: none;
+        appearance: none;
+        padding: 5px;
+      }
+
+      /* Determines the style of the background of the progress bar */
+      progress[value]::-webkit-progress-bar {
+        background-color: #8492a6;
+        height: 10px;
+        border-radius: 15px;
+      }
+      /* Determines the style of the completed part of the progress bar */
+      progress[value]::-webkit-progress-value {
+        background-image: -webkit-linear-gradient(left, #719900, #bdff00);
+        height: 10px;
+        border-radius: 15px;
+      }
+
+      div.loading {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        pointer-events: none;
+      }
+      div.loading > * {
+        padding: 10px;
+        margin: 10px;
+      }
+
+      .output-container {
+        text-align: center;
+        margin-top: auto;
+      }
+      .output-button {
+        border: none;
+        width: 200px;
+        height: 25px;
+        margin: 5px;
+        border-radius: 5px;
+        cursor: pointer;
+        background-color: black;
+        color: #20c20e;
+        font-family: "Lucida Console", Monaco, monospace;
+      }
+
+      #output {
+        display: none;
+        height: 200px;
+        background-color: black;
+        color: white;
+        font-family: "Lucida Console", Monaco, monospace;
+        outline: none;
+        border: none;
+        padding: 0;
+        width: 100%;
+      }
+
+      #message-container {
+        display: none;
+        min-height: 50px;
+        background-color: rgba(20, 20, 20, 0.5);
+        outline: none;
+        border: none;
+        padding: 0;
+        width: 100%;
+        position: absolute;
+        top: 0;
+      }
+
+      #messages {
+        margin-left: 50px;
+        color: white;
+        font-family: "Lucida Console", Monaco, monospace;
+        outline: none;
+        border: none;
+        padding: 0;
+      }
+
+      img.qrCode {
+         opacity: 1.0;
+         width: 50%;
+         height: 50%;
+      }
+
+      #pauseMenuContainer {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      #pauseMenuContainer[hidden] {
+        display: none !important;
+        opacity: 0;
+      }
+
+      #pauseMenuBorder {
+        background: linear-gradient(135deg, #FA1E4E, transparent 40%);
+        padding: 1px;
+        border-radius: 4px;
+        clip-path: polygon(10.5px 0, 100% 0, 100% 100%, 0 100%, 0 10.5px);
+        width: 70vw;
+        max-width: 400px;
+      }
+
+      #pauseMenu {
+        display: flex;
+        flex-direction: column;
+        padding: 60px 30px 60px 30px;
+        background: linear-gradient(180deg, #2E273F 16.15%, rgba(46, 39, 63, 0.79) 56.25%, #2E273F 91.15%);
+        border-radius: 4px;
+        clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
+        animation-name: fadeIn;
+        animation-duration: 0.5s;
+        opacity: 1;
+      }
+
+      #pauseMenu button {
+        font-weight: 500;
+        font-size: 17px;
+        color: white;
+        background: #FA1E4E;
+        border: 1px solid #FA1E4E;
+        border-radius: 6px;
+        padding: 12px 24px;
+        margin: 5px 0;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      #pauseMenu button#quitButton {
+        background: #FA1E4E40;
+      }
+
+      #pauseMenu button:hover {
+        filter: brightness(1.15);
+      }
+
+      #pauseMenu button:active {
+        filter: brightness(0.85);
+      }
+
+      #pauseMenu button[hidden] {
+        display: none;
+      }
+
+      *,
+      *::before,
+      *::after {
+        -webkit-animation: none !important;
+        -moz-animation: none !important;
+        -o-animation: none !important;
+        animation: none !important;
+        -webkit-transition: none !important;
+        -moz-transition: none !important;
+        -o-transition: none !important;
+        transition: none !important;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas
+      class="emscripten"
+      id="canvas"
+      oncontextmenu="event.preventDefault()"
+      tabindex="-1"
+    >
+    </canvas>
+    <div id="pauseMenuContainer" hidden>
+      <div id="pauseMenuBorder">
+        <div id="pauseMenu">
+          <button id="resumeButton" onclick="resume()">
+            Resume
+          </button>
+          <button id="quitButton" onclick="quitIfSupported()">
+            Quit
+          </button>
+        </div>
+        </div>
+    </div>
+    <div class="loading">
+      <div class="spinner" id="spinner"></div>
+      <div class="emscripten" id="status">Downloading...</div>
+
+      <progress value="0" max="100" id="progress" hidden="1"></progress>
+      <img id="QRCode" class="qrCode" src="runner.svg" alt="URL QR Code" hidden="1"></img>
+      <img id="QR2Code" class="qrCode" src="runnerLocal.svg" alt="URL QR2 Code" hidden="1"></img>
+    </div>
+    <div class="multiplayer-stats" id="multiplayer-stats">
+      [no stats available]
+    </div>
+    <div class="output-container" id="output-container">
+      <!--
+      <button id="webglbutton" class="output-button" onclick="toggleWebGLContext()">
+        Lose WebGL Context
+      </button>
+      -->
+      <textarea id="output" rows="8"></textarea>
+    </div>
+
+    <div id="message-container">
+      <div id="messages">
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      const CHANGE_ASPECT_RATIO = true;
+
+      var bodyElement = document.getElementsByTagName("body")[0];
+      var statusElement = document.getElementById("status");
+      var progressElement = document.getElementById("progress");
+      var spinnerElement = document.getElementById("spinner");
+      var canvasElement = document.getElementById("canvas");
+      var outputElement = document.getElementById("output");
+      var outputContainerElement = document.getElementById("output-container");
+      var qrElement = document.getElementById("QRCode");
+      var qr2Element = document.getElementById("QR2Code");
+      var qrButton = document.getElementById("QRButton");
+      var qr2Button = document.getElementById("QR2Button");
+      var pauseMenu = document.getElementById("pauseMenuContainer");
+      var resumeButton = document.getElementById("resumeButton");
+      var quitButton = document.getElementById("quitButton");
+
+      const messageContainerElement = document.getElementById("message-container");
+      const messagesElement = document.getElementById("messages");
+      let rollbackMessages = [];
+
+      let clearRollbackMessagesTimeoutId = -1;
+      const showRollbackMessage = function (message) {
+        let messages = "";
+        rollbackMessages.push(message);
+        rollbackMessages.forEach(m => messages += "<p>" + m + "</p>");
+
+        messagesElement.innerHTML = messages;
+        messageContainerElement.style.display = 'block';
+
+        if (clearRollbackMessagesTimeoutId === -1) {
+          clearTimeout(clearRollbackMessagesTimeoutId);
+        }
+        clearRollbackMessagesTimeoutId = setTimeout(clearRollbackMessages, 5000);
+      };
+
+      const clearRollbackMessages = function () {
+        clearRollbackMessagesTimeoutId = -1;
+        rollbackMessages = [];
+        messageContainerElement.style.display = 'none';
+      };
+
+      var startingHeight, startingWidth;
+      var startingAspect;
+      var Module = {
+        preRun: [],
+        postRun: [],
+        print: (function () {
+          var element = document.getElementById("output");
+          if (element) element.value = ""; // clear browser cache
+          return function (text) {
+            if (arguments.length > 1)
+              text = Array.prototype.slice.call(arguments).join(" ");
+            // These replacements are necessary if you render to raw HTML
+            //text = text.replace(/&/g, "&amp;");
+            //text = text.replace(/</g, "&lt;");
+            //text = text.replace(/>/g, "&gt;");
+            //text = text.replace('\n', '<br>', 'g');
+            console.log(text);
+            if (text === "Entering main loop.") {
+              // It seems that this text ensures game is loaded.
+              ensureAspectRatio();
+            }
+            if (element) {
+              element.value += text + "\n";
+              element.scrollTop = element.scrollHeight; // focus on bottom
+            }
+          };
+        })(),
+        printErr: function (text) {
+          if (arguments.length > 1)
+            text = Array.prototype.slice.call(arguments).join(" ");
+          console.error(text);
+        },
+        canvas: (function () {
+          var canvas = document.getElementById("canvas");
+
+          return canvas;
+        })(),
+        setStatus: function (text) {
+          if (!Module.setStatus.last)
+            Module.setStatus.last = { time: Date.now(), text: "" };
+          if (text === Module.setStatus.last.text) return;
+          var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+          var now = Date.now();
+          if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
+          Module.setStatus.last.time = now;
+          Module.setStatus.last.text = text;
+          if (m) {
+            text = m[1];
+            progressElement.value = parseInt(m[2]) * 100;
+            progressElement.max = parseInt(m[4]) * 100;
+            progressElement.hidden = false;
+            spinnerElement.hidden = false;
+          } else {
+            progressElement.value = null;
+            progressElement.max = null;
+            progressElement.hidden = true;
+
+            // If there are no status text, we are finished and can display
+            // the canvas and hide the spinner
+            if (!text) {
+              spinnerElement.style.display = "none";
+              canvasElement.style.display = "block";
+            }
+          }
+          statusElement.innerHTML = text;
+        },
+        totalDependencies: 0,
+        monitorRunDependencies: function (left) {
+          this.totalDependencies = Math.max(this.totalDependencies, left);
+          Module.setStatus(
+            left
+              ? "Preparing... (" +
+                  (this.totalDependencies - left) +
+                  "/" +
+                  this.totalDependencies +
+                  ")"
+              : "All downloads complete."
+          );
+        },
+      };
+      Module.setStatus("Downloading...");
+      window.onerror = function (event) {
+        // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
+        Module.setStatus("Exception thrown, see JavaScript console");
+        spinnerElement.style.display = "none";
+        Module.setStatus = function (text) {
+          if (text) Module.printErr("[post-exception status] " + text);
+        };
+      };
+
+      // Route URL GET parameters to argc+argv
+      if (typeof window === "object") {
+        Module['arguments'] = window.location.search.substr(1).trim().split('&');
+        // If no args were passed arguments = [''], in which case kill the single empty string.
+        if (!Module['arguments'][0]) {
+          Module['arguments'] = [];
+        }
+      }
+
+      function toggleConsole() {
+        var isShown = outputElement.style.display === "flex";
+        if (isShown) {
+          outputElement.style.display = "none";
+          outputElement.scrollIntoView(false);
+        } else {
+          outputElement.style.display = "flex";
+          outputElement.scrollIntoView(true);
+        }
+      }
+
+      function toggleQRCode() {
+        var isShown = !qrElement.hidden;
+        if (isShown) {
+          qrElement.hidden = true;
+          qrButton.innerHTML = "Show QRCode";
+        } else {
+          qrElement.hidden = false;
+          qrButton.innerHTML = "Hide QRCode";
+        }
+      }
+
+      function toggleQRCode2() {
+        var isShown = !qr2Element.hidden;
+        if (isShown) {
+          qr2Element.hidden = true;
+          qr2Button.innerHTML = "Show Opera GX QRCode";
+        } else {
+          qr2Element.hidden = false;
+          qr2Button.innerHTML = "Hide Opera GX QRCode";
+        }
+      }
+
+      /*
+      var g_extLostContext = null;
+
+      function toggleWebGLContext() {
+        if (g_extLostContext == null) {
+          var canvas = document.getElementById('canvas');
+          var gl = canvas.getContext('webgl2');
+          g_extLostContext = gl.getExtension('WEBGL_lose_context');
+        } // end if
+        var button = document.getElementById("webglbutton");
+        var text = button.textContent || button.innerText;
+        if (text.trim() == "Lose WebGL Context") {
+          g_extLostContext.loseContext();
+          button.textContent = "Restore WebGL Context";
+        } // end if
+        else {
+          g_extLostContext.restoreContext();
+          button.textContent = "Lose WebGL Context";
+          g_extLostContext = null;
+        } // end else
+      }
+      */
+      function toggleStats() {
+        var elem = document.getElementById('multiplayer-stats');
+        if (elem) {
+          elem.style.visibility = elem.style.visibility == 'visible' ? 'hidden' : 'visible';
+        }
+      }
+
+      var g_pWadLoadCallback = undefined;
+      function setWadLoadCallback( _wadLoadCallback ) 
+      {
+        g_pWadLoadCallback = _wadLoadCallback;
+      }
+
+      var g_pAddAsyncMethod = -1;
+
+      function setAddAsyncMethod( asyncMethod )
+      {
+        g_pAddAsyncMethod = asyncMethod;
+      }
+
+      var g_pJSExceptionHandler = undefined;
+
+      function setJSExceptionHandler( exceptionHandler )
+      {
+        if (typeof exceptionHandler == "function") {
+            g_pJSExceptionHandler = exceptionHandler;
+        } // end if
+      } // end setJSExceptionHandler
+
+      function hasJSExceptionHandler()
+      {
+        return (g_pJSExceptionHandler != undefined) && (typeof g_pJSExceptionHandler == "function");
+      } // end hasJSExceptionHandler
+
+      function doJSExceptionHandler( exceptionJSON )
+      {
+        if (typeof g_pJSExceptionHandler == "function") {
+          var exception = JSON.parse( exceptionJSON );
+          g_pJSExceptionHandler( exception );
+        } // end if
+      } // end doJSExceptionHandler
+
+      function manifestFiles()
+      {
+        return [ "runner.data",
+"runner.js",
+"runner.wasm",
+"audio-worklet.js",
+"audio_intronoise.ogg",
+"snd_revival.ogg",
+"snd_closet_fall.ogg",
+"snd_paper_rumble.ogg",
+"snd_paper_surf.ogg",
+"game.unx",
+"snd_closet_impact.ogg",
+"snd_great_shine.ogg",
+"snd_rurus_appear.ogg",
+"mus/spamton_neo_meeting.ogg",
+"mus/home.ogg",
+"mus/wind.ogg",
+"mus/wind_highplace.ogg",
+"mus/audio_anotherhim.ogg",
+"mus/card_castle.ogg",
+"mus/kingboss.ogg",
+"mus/audio_darkness.ogg",
+"mus/audio_defeat.ogg",
+"mus/forest.ogg",
+"mus/the_holy.ogg",
+"mus/spamton_house.ogg",
+"mus/cyber_battle.ogg",
+"mus/lancer.ogg",
+"mus/berdly_descend.ogg",
+"mus/cybercity.ogg",
+"mus/lancer_susie.ogg",
+"mus/gameover_short.ogg",
+"mus/bird.ogg",
+"mus/mus_birdnoise.ogg",
+"mus/gallery.ogg",
+"mus/thrashmachine.ogg",
+"mus/charjoined.ogg",
+"mus/spamton_happy.ogg",
+"mus/music_guys_intro.ogg",
+"mus/muscle.ogg",
+"mus/field_of_hopes.ogg",
+"mus/spamton_meeting_intro.ogg",
+"mus/queen_boss.ogg",
+"mus/deep_noise.ogg",
+"mus/creepydoor.ogg",
+"mus/flashback_excerpt.ogg",
+"mus/town.ogg",
+"mus/noelle_normal.ogg",
+"mus/legend.ogg",
+"mus/spamton_neo_mix_ex_wip.ogg",
+"mus/prejoker.ogg",
+"mus/cyber_battle_end.ogg",
+"mus/tense.ogg",
+"mus/cyber.ogg",
+"mus/cybercity_old.ogg",
+"mus/queen_car_radio.ogg",
+"mus/basement.ogg",
+"mus/berdly_battle_heartbeat_true.ogg",
+"mus/honksong.ogg",
+"mus/queen.ogg",
+"mus/music_guys.ogg",
+"mus/friendship.ogg",
+"mus/spamton_meeting.ogg",
+"mus/alley_ambience.ogg",
+"mus/battle.ogg",
+"mus/creepylandscape.ogg",
+"mus/checkers.ogg",
+"mus/d.ogg",
+"mus/s_neo_clip.ogg",
+"mus/queen_intro.ogg",
+"mus/cybershop_christmas.ogg",
+"mus/berdly_audience.ogg",
+"mus/mus_introcar.ogg",
+"mus/cybercity_alt.ogg",
+"mus/mansion_entrance.ogg",
+"mus/boxing_boss.ogg",
+"mus/gigaqueen_pre.ogg",
+"mus/giant_queen_appears.ogg",
+"mus/spamton_battle.ogg",
+"mus/creepychase.ogg",
+"mus/s_neo.ogg",
+"mus/spamton_laugh_noise.ogg",
+"mus/dontforget.ogg",
+"mus/april_2012.ogg",
+"mus/cyberhouse.ogg",
+"mus/thrash_rating.ogg",
+"mus/spamton_basement.ogg",
+"mus/audio_story.ogg",
+"mus/ocean.ogg",
+"mus/w.ogg",
+"mus/the_dark_truth.ogg",
+"mus/mus_school.ogg",
+"mus/coolbeat.ogg",
+"mus/noelle_school.ogg",
+"mus/noelle.ogg",
+"mus/berdly_theme.ogg",
+"mus/cyber_shop.ogg",
+"mus/napsta_alarm.ogg",
+"mus/alarm_titlescreen.ogg",
+"mus/cyber_battle_prelude.ogg",
+"mus/rouxls_battle.ogg",
+"mus/fanfare.ogg",
+"mus/lancerfight.ogg",
+"mus/keygen.ogg",
+"mus/tv_noise.ogg",
+"mus/joker.ogg",
+"mus/shop1.ogg",
+"mus/berdly_flashback.ogg",
+"mus/audio_drone.ogg",
+"mus/mansion.ogg",
+"mus/man.ogg",
+"mus/shinkansen.ogg",
+"mus/vs_susie.ogg",
+"mus/acid_tunnel.ogg",
+"mus/elevator.ogg",
+"mus/ruruskaado.ogg",
+"mus/menu.ogg",
+"mus/castletown_empty.ogg",
+"mus/noelle_ferriswheel.ogg",
+"mus/berdly_chase.ogg",
+"mus/sink_noise.ogg",
+"mus/quiet_autumn.ogg",
+"mus/spamton_neo_after.ogg",
+"mus/dogcheck.ogg",
+"mus/boxing_game.ogg",
+"mus/static_placeholder.ogg",
+"mus/castletown.ogg",
+"mus/ch2_credits.ogg",
+"mus/hip_shop.ogg" ].join( ";");
+      }
+
+      function manifestFilesMD5()
+      {
+        return [ "20d81f41b03c75d8dc6dfca539016dce",
+"536954f7cf0f327a3f882f6d16864100",
+"6f323d3c886b09bf86db95ecfef4b507",
+"e8f1e8db8cf996f8715a6f2164c2e44e",
+"b918e8a58a182e585f600d51155925af",
+"33e00d1a7f2e6e19fd2fa269ddfbfbf4",
+"063bd2ff1f1911c99b0697d14308c1c1",
+"40d9fb6cd468b63073854b11b8162ae5",
+"1c469264e56d565596e9b5cc0165eb77",
+"3514778bd1a8b9283f5d18a37c5d127a",
+"c7ed25446d9d34af39b7582d8986c6b3",
+"04fce6209547072ee69c0edcbb3c57a8",
+"46f88c456820cb4d2f6b34635ba4942c",
+"57aa6b7aa394f7d234826019fd5f7780",
+"3c03d4a70f156f85176785d5cf19750f",
+"2aa5e60561b83ab45e62a3e65cecb704",
+"e52be439c3512d06a80bc8b89b9c65b9",
+"4c659ca8adb1ad8566282ba14315dd92",
+"600be0a11f392540343d01bb30ce9906",
+"e4c8222adddeafb167f17cc917074503",
+"0d2f7a99ff6333a6c067c3cdc16e65c5",
+"832d210df7f526db646b778389752ecb",
+"3312e0eb9f378011b046f1468a5c9e00",
+"b3b6c3b3010197bd38d54726a2600196",
+"3ece3c0df9b45f8a835e07ca03f1bf67",
+"739a4cfe137c942195472b293e153a7a",
+"a31dccf062f49160c4cfbb00d6ffe051",
+"4b249ad18eb4c40dbf9b75279b1db4fc",
+"94b6b9b79dffaa03fdcde025fec7bed9",
+"300915e4444d6e4fc703bb13c6101231",
+"1bc2a77146b55daba27c37946fa7d710",
+"44d30635dd2fddfb61c05e4d588a16da",
+"4ec29b34cf16470e3e7fc2b68ece2fe7",
+"89f32d25611c08cc83e06314f6b0d29f",
+"e811c9be2061976ddc83da887f049c54",
+"e5fcdbde17e379df7b0ea04cd4047554",
+"7727fa679da98d75ddbcddc6ab0ca5f4",
+"1476e98f74ae2587c5ce0a46002be272",
+"d8beaeb1698c3d3764486a1b2c9bb90d",
+"97e55a447fce145f997550b2e25c5af4",
+"6290ca8942332e69a5cfdc5c6bb101f2",
+"f11149e3284bd3ced3f433545cac773a",
+"16abc519fb2fc601b664cc8d3fdae7eb",
+"88875cb3ac1a99f04b739d61519c4dca",
+"7a1f8573b461680f279b9db4f8aca635",
+"02026185beb4192b9f7d75e0c4f5ba46",
+"e104d7d8c65fd26cf9dccf797f5358a7",
+"88046a3ced3e763d4e63479c058dcdb1",
+"2d19f11cbc7e0a08ee9668df623aee74",
+"2c4a53fdbcc000c3fea8b31b4df31de8",
+"424f052478d480f3adc248bd6e9810a5",
+"aa419973a1d172c5af980396a7a84ec5",
+"5d1d55c235d50fe088cca681d702925a",
+"7a254414daa7336e304b89819360a12b",
+"d4c39720834b782bfe8bf8df1ad41adb",
+"741d0675a2e4a21aa898485f1adbdf03",
+"65edd6ec4dde6f34263cb56af9524280",
+"06178a5aa11b2f8b1875d06b8d7f7bf9",
+"c53d19c7fd847ac4a2db457ffb434f6c",
+"a056c744d2e1c5480aabc9a7bbbc990f",
+"603b36b691067b184fa244a261a4757c",
+"d6143cb460b4081aa8e0a78dd0b5237c",
+"caf022c80f61de86254305e91d3563bd",
+"cced72991f8aa20cdfd1e279043a02d0",
+"e2bb34f65d98c135d281d61b63c51b76",
+"81385d6bca4c3928fcc328268d469c8f",
+"47948f051f79fe201224a9fbdc07de9e",
+"5a48961a5c5988b7f0d1d2bff4bb08e0",
+"08e53d5b016a575a801bdb9bcbdc5d31",
+"7ca1a8de22e36a4878e5be6c993fdfcd",
+"4f2521fefa6114262aba4da49c50fe70",
+"fe7a66abe39dcb4f3b2534c35fadd831",
+"d116de4e8aa8e9484a62491d5d52eb54",
+"b44d35fbb8f80d803d2212824c672477",
+"1a043291cb669ab265ebe657298c1303",
+"7212af3364678a24046a7836dbff3189",
+"1fa875ef6bc377520de1c15193f481dd",
+"571e7886a634cd57d2ec1f51c5bd8bf9",
+"043f12bedbccd1fb402e910f7be2f121",
+"2889a36cb31f216ebfa03c26b4a03234",
+"f109579b28af366dbaed8f8f58639d19",
+"f7f65393c245b5fde4a7bd1e285c2b99",
+"1fb9c074e72dee38bb757d1f96353ad8",
+"4b926e56d6e206a8514e255bdb7b0bb5",
+"66572fd57a62b03f5c16a4ad9915f127",
+"260646b5fc7003523faae282c93bf065",
+"8c44cb6c0ead7f3ac739ad969bc1ab0b",
+"717bba27166491817c4e51c0b8913495",
+"2df7c77161eb1ce147b85ac87e6609d6",
+"4b42a9c72b1fb31ecc82ece18f4308ad",
+"28100338c55da65a18f37794278ee157",
+"1a67e6ce6c8395170fd3d6697e31204f",
+"d85a77183447fdd6019f77af480a4530",
+"1ca9c249943d2ef59c9413edba69b28d",
+"ca2f01b54715b2032f6708ec2bb70c98",
+"6b695ac718eb2f28757c62d79d199ff7",
+"be2682e04f849f6906e8205121753562",
+"7bc37403f8b5fa3670605efe00124d73",
+"4fe7d899de410959e39d7f33b1e0b9e8",
+"15fa8876e7cad54d1033bb6ee237c9ae",
+"1295ebecc6dac86a9b5e45db2bf2a8ba",
+"891366b99f2edd6da14fb3395891dd57",
+"af427d97136f380b9e361b195b885217",
+"9ab5f73dc93f66c0428ab73267dfe674",
+"af27e37e42746889099bae637b8bd9dd",
+"2bf19594897cb007a1433386b0d27d63",
+"13f201e8f52c1ff0968005daf880f95d",
+"163fb3286bc2b230da452acfb277dc12",
+"c5e8e5b459d9f7ae8fe5b6e9bba1d5a2",
+"20a89883018422859b6bc2759289e6e7",
+"052c3eefb3bb5e8e959b7d6db6661e51",
+"6a48ed774e2c04177e8fde3689872035",
+"259ae1b60ea0eda223b8933754303322",
+"48d902592ae64424b646bb0f2ac23c64",
+"226ef2189079409f4c61589756d60aa4",
+"e961a6fc4a7c34e9b4d0c8be1e0dde07",
+"0c39648bdf8ca2ad95301e8196638e9d",
+"3b3ea55e36bf2377e843d7190e5addb6",
+"b2863fd291519b09a32b84c1f5d70d6c",
+"ee8ccb0db46f717df4fe00872c896d4c",
+"fb9c60c59c39d3746b08e912818162b1",
+"32d4052d99f30daea5255a5ba6685b9a",
+"c8bf4e58112d953ca9e7855c402c1e13",
+"714166c76109808fa06612775bf8417c",
+"311c0150a1bd176a48e04dc1065fbca8",
+"b5d5eed5f205f8862b1b45c4e3777310",
+"af81ebdf9920985d0ce068872ac009fc",
+"3d407240e2758034892ba7b6789e55db" ];
+      }
+
+      function onFirstFrameRendered()
+      {
+          //console.log("First frame rendered!");
+      }
+
+      function onGameSetWindowSize(width,height)
+      {
+          if (startingHeight === undefined && startingWidth === undefined) {
+              console.log("Initial window size set to width: " + width + ", height: " + height);
+
+              startingHeight = height;
+              startingWidth = width;
+              startingAspect = startingWidth / startingHeight;
+          }
+      }
+
+    function triggerAd(adId, _callback_beforeAd, _callback_afterAd, _callback_adDismissed, _callback_adViewed, _callback_adbreakDone) {
+      //dont do anything in here. ads suck.
+      }
+
+      function ensureAspectRatio() {
+        if (canvasElement === undefined) {
+          return;
+        }
+
+        if (!CHANGE_ASPECT_RATIO) {
+          return;
+        }
+        
+        if (startingHeight === undefined && startingWidth === undefined) {
+          return;
+        }
+
+        canvasElement.classList.add("active");
+
+        const maxWidth = window.innerWidth;
+        const maxHeight = window.innerHeight;
+        var newHeight, newWidth;
+
+        // Find the limiting dimension.
+        var heightQuotient = startingHeight / maxHeight;
+        var widthQuotient = startingWidth / maxWidth;
+
+        if (heightQuotient > widthQuotient) {
+          // Max out on height.
+          newHeight = maxHeight;
+          newWidth = newHeight * startingAspect;
+        } else {
+          // Max out on width.
+          newWidth = maxWidth;
+          newHeight = newWidth / startingAspect;
+        }
+
+        canvasElement.style.height = newHeight + "px";
+        canvasElement.style.width = newWidth + "px";
+      }
+
+      function pause() { // Don't change the name - GX Mobile calls it when the app becomes inactive.
+        if (!canvasElement.classList.contains("active")) { // Wait for the canvas to load.
+          return
+        }
+        
+        //GM_pause();
+        //pauseMenu.hidden = false;
+        //canvasElement.classList.add("paused");
+      }
+
+      function resume() {
+        //GM_unpause();
+        //pauseMenu.hidden = true;
+        //canvasElement.classList.remove("paused");
+        //canvasElement.classList.add("unpaused");
+        //enterFullscreenIfSupported();
+        //lockOrientationIfSupported();
+      }
+
+      function quitIfSupported() {
+        if (window.oprt && window.oprt.closeTab) { /* GX Mobile API */
+          window.oprt.closeTab();
+        } else if (window.chrome && window.chrome.runtime && window.chrome.runtime.sendMessage) {
+          window.chrome.runtime.sendMessage('mpojjmidmnpcpopbebmecmjdkdbgdeke', { command: 'closeTab' })
+        }
+      }
+
+      function enterFullscreenIfSupported() {
+        if (!window.oprt || !window.oprt.enterFullscreen) { /* GX Mobile API */
+          return;
+        }
+
+        window.oprt.enterFullscreen();
+        let viewStatus = GM_get_view_status();
+        viewStatus.fullscreen = true;
+        GM_set_view_status(viewStatus);
+      }
+
+      function lockOrientationIfSupported() {
+        if (!window.oprt || !window.oprt.lockPortraitOrientation || !window.oprt.lockLandscapeOrientation) { /* GX Mobile API */
+          return;
+        }
+
+        let viewStatus = GM_get_view_status();
+        if (viewStatus.landscape === true && viewStatus.portrait === false) {
+          window.oprt.lockPortraitOrientation();
+        } else if (viewStatus.landscape === false && viewStatus.portrait === true) {
+          window.oprt.lockPortraitOrientation();
+        }
+      }
+
+      /* Observe the dimensions of body and ensureAspectRatio of the canvas (whilst taking up maximum space)
+       *
+       * NOTE(robertz):
+       *  We also need to request an Animation Frame to do this, if we do not, resizeObserver might throw error
+       *  "ResizeObserver loop limit exceeded", which means that
+       *  "[...] ResizeObserver was not able to deliver all observations within a single animation frame"
+       *  https://stackoverflow.com/a/50387233 (source).
+       *
+       *  There are different ways to solve the issue, since the error is benign (meaning it wont crash anything)
+       *  we could choose to ignore it via changing the window.onerror method, i.e
+       *  ```
+       *  window.onerror((event)=> {
+       *    if(event==="ResizeObserver loop limit exceeded") {
+       *       return
+       *    }
+       *     ///...rest
+       *  }
+       *  ```
+       *  But for now we request an animationFrame which seems to be the recommended way to go about it.
+       *
+       * NOTE(ddrechny):
+       *  window.innerWidth/Height value updates are sometimes delayed in WebKit on iOS after an orientation
+       *  change. Hence we're calling ensureAspectRatio one more time after a delay to minimize the risk of
+       *  sizing the canvas with outdated values.
+       */
+      const resizeObserver = new ResizeObserver(() => {
+        window.requestAnimationFrame(ensureAspectRatio);
+        setTimeout(() => window.requestAnimationFrame(ensureAspectRatio), 100);
+      });
+      resizeObserver.observe(document.body);
+
+      /* NOTE(ddrechny):
+       *  Body needs to be scrollable on desktop browsers for debug buttons to be accessible.
+       *  On mobile browsers scrolling can be activated accidentally and debug buttons aren't useful,
+       *  so it's better to disable it.
+       */
+      if (/Android|iPhone|iPod/i.test(navigator.userAgent)) {
+        bodyElement.className = "scrollingDisabled";
+        canvasElement.classList.add("animatedSizeTransitions");
+        outputContainerElement.hidden = true;
+      }
+
+      document.addEventListener("visibilitychange", (event) => {
+        if (document.visibilityState != "visible") {
+          pause();
+        }
+      });
+
+      window.addEventListener("load", (event) => {
+        if ((!window.oprt || !window.oprt.enterFullscreen) && (!window.chrome || !window.chrome.runtime || !window.chrome.runtime.sendMessage)) {
+          quitButton.hidden = true;
+        }
+      });
+
+      setWadLoadCallback(() => {
+        enterFullscreenIfSupported();
+        lockOrientationIfSupported();
+      });
+    </script>
+    <script async type="text/javascript" src="runner.js"></script>
+  </body>
+</html>
